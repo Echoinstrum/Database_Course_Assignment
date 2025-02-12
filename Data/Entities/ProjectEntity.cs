@@ -16,7 +16,7 @@ public class ProjectEntity
     public int CustomerId { get; set; }
     CustomerEntity Customer { get; set; } = null!;
 
-    public int StatusId { get; set; }
+    public int StatusTypeId { get; set; }
     StatusTypeEntity Status { get; set; } = null!;
 
     public int UserId { get; set; }
