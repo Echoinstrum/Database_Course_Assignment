@@ -14,14 +14,14 @@ public class ProjectEntity
 
 
     public int CustomerId { get; set; }
-    CustomerEntity Customer { get; set; } = null!;
+    public CustomerEntity Customer { get; set; } = null!;
 
     public int StatusTypeId { get; set; }
-    StatusTypeEntity Status { get; set; } = null!;
+    public StatusTypeEntity Status { get; set; } = null!;
 
     public int UserId { get; set; }
-    UserEntity User { get; set; } = null!;
+    public UserEntity User { get; set; } = null!;
 
     public int ProductId { get; set; }
-    ProductEntity Product { get; set; } = null!;
+    public ProductEntity Product { get; set; } = null!;
 }
