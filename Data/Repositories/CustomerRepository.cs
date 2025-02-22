@@ -25,10 +25,28 @@ public class CustomerRepository(DataContext context)
         }
     }
 
-    // READ
+    // READ ALL
     public async Task<IEnumerable<CustomerEntity>> GetAllAsync()
     {
         return await _context.Customers.ToListAsync();
+    }
+
+    public async Task<CustomerEntity?> GetCustomerByIdAsync(int customerId)
+    {
+        try
+        {
+            return await _context.Customers.FindAsync(customerId);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error in GetCustomerByIdAsync: {ex}");
+            return null;
+        }
+    }
+
+    public async Task<CustomerEntity?> GetCustomerByNameAsync(string customerName)
+    {
+        return await _context.Customers.FirstOrDefaultAsync(c => c.CustomerName == customerName);
     }
 
     // UPDATE
@@ -77,4 +95,6 @@ public class CustomerRepository(DataContext context)
             return false;
         }
     }
+
+
 }

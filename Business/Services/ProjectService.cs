@@ -1,43 +1,155 @@
-﻿using Data.Entities;
+﻿using Business.Models;
+using Data.Entities;
 using Data.Repositories;
+using System.Diagnostics;
 
 namespace Business.Services;
 
 public class ProjectService
 {
     private readonly ProjectRepository _projectRepository;
-
-    public ProjectService(ProjectRepository projectRepository)
+    private readonly CustomerService _customerService;
+    public ProjectService(ProjectRepository projectRepository, CustomerService customerService)
     {
         _projectRepository = projectRepository;
+        _customerService = customerService;
     }
 
-    public async Task<ProjectEntity?> CreateProjectAsync(ProjectEntity projectEntity)
+    public async Task<ProjectModel?> CreateProjectAsync(ProjectRegistrationForm projectRegistrationForm)
     {
-        //Continous help from chatgpt-4o on the "Generating a project number "P-" for each project.
-        //Here i call the SetProjectNumber method from the ProjectEntity. 
-        //And set it, using the generated projectEntity's Id
-        projectEntity.SetProjectNumber(GenerateProjectNumber(projectEntity.Id));
-        return await _projectRepository.CreateProjectAsync(projectEntity);
+        try
+        {
+            var customerEntity = await _customerService.CreateCustomerIfNotExistAsync(projectRegistrationForm.CustomerName);
+
+            var projectEntity = new ProjectEntity
+            {
+                Title = projectRegistrationForm.Title,
+                Description = projectRegistrationForm.Description,
+                StartDate = projectRegistrationForm.StartDate,
+                EndDate = projectRegistrationForm.EndDate,
+                ProjectManager = projectRegistrationForm.ProjectManager,
+                TotalPrice = projectRegistrationForm.TotalPrice,
+                Status = projectRegistrationForm.Status,
+                Service = projectRegistrationForm.Service,
+                CustomerId = customerEntity.Id
+            };
+            //Calls the GetNextProjectNumberAsync-method. 
+            //That counts all the existing projects in the db and creates the next comming project number
+            var nextProjectNumber = await _projectRepository.GetNextProjectNumberAsync();
+            projectEntity.SetProjectNumber(nextProjectNumber);
+            //Sets the generated projectNuber in ProjectEntity through the SetProjectNumber-method
+            //Which we use because ProjectNumber has a private set.
+
+
+
+            var createdProject = await _projectRepository.CreateProjectAsync(projectEntity);
+
+            if (createdProject != null)
+            {
+                var customer = await _customerService.GetCustomerByIdAsync(createdProject.CustomerId);
+
+                return new ProjectModel
+                {
+                    Id = createdProject.Id,
+                    ProjectNumber = createdProject.ProjectNumber,
+                    Title = createdProject.Title,
+                    Description = createdProject.Description,
+                    StartDate = createdProject.StartDate,
+                    EndDate = createdProject.EndDate,
+                    ProjectManager = createdProject.ProjectManager,
+                    TotalPrice = createdProject.TotalPrice,
+                    Status = createdProject.Status,
+                    Service = createdProject.Service,
+                    CustomerId = createdProject.CustomerId,
+                    CustomerName = customer?.CustomerName ?? "Okänd kund"
+                };
+
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error in CreateProjectAsync: {ex.Message}");
+            return null;
+        }
+
+        return null;
     }
 
-    public async Task<IEnumerable<ProjectEntity>> GetAllProjectsAsync()
+    public async Task<IEnumerable<ProjectModel>> GetAllProjectsAsync()
     {
-        return await _projectRepository.GetAllProjectsAsync();
+        var projects = await _projectRepository.GetAllProjectsAsync();
+
+        return projects.Select(project => new ProjectModel
+        {
+            Id = project.Id,
+            ProjectNumber = project.ProjectNumber,
+            Title = project.Title,
+            Description = project.Description,
+            StartDate = project.StartDate,
+            EndDate = project.EndDate,
+            ProjectManager = project.ProjectManager,
+            CustomerId = project.CustomerId,
+            CustomerName = project.Customer?.CustomerName?? "Okänd kund",
+            TotalPrice = project.TotalPrice
+        });
     }
 
-    public async Task<bool> UpdateProjectAsync(ProjectEntity updatedProjectEntity)
+    public async Task<ProjectModel?> GetProjectByIdAsync(int projectId)
     {
-        return await _projectRepository.UpdateProjectAsync(updatedProjectEntity);
+        var project = await _projectRepository.GetProjectByIdAsync(projectId);
+        if(project == null)
+        {
+            return null;
+        }
+
+        var customer = await _customerService.GetCustomerByIdAsync(project.CustomerId);
+
+        return new ProjectModel
+        {
+            Id = project.Id,
+            ProjectNumber = project.ProjectNumber,
+            Title = project.Title,
+            Description = project.Description,
+            StartDate = project.StartDate,
+            EndDate = project.EndDate,
+            ProjectManager = project.ProjectManager,
+            TotalPrice = project.TotalPrice,
+            Status = project.Status,
+            Service = project.Service,
+            CustomerName = customer?.CustomerName ?? "Okänd kund"
+        };
+    }
+
+    public async Task<bool> UpdateProjectAsync(ProjectModel updatedProjectModel)
+    {
+        var existingProject =  await _projectRepository.GetProjectByIdAsync(updatedProjectModel.Id);
+        if(existingProject == null)
+        {
+            Debug.WriteLine("Project not found for update");
+            return false;
+        }
+
+        existingProject.Title = updatedProjectModel.Title;
+        existingProject.Description = updatedProjectModel.Description;
+        existingProject.StartDate = updatedProjectModel.StartDate;
+        existingProject.EndDate = updatedProjectModel.EndDate;
+        existingProject.ProjectManager = updatedProjectModel.ProjectManager;
+        existingProject.TotalPrice = updatedProjectModel.TotalPrice;
+        existingProject.Status = updatedProjectModel.Status;
+        existingProject.Service = updatedProjectModel.Service;
+
+        return await _projectRepository.UpdateProjectAsync(existingProject);
     }
 
     public async Task<bool> DeleteProjectAsync(int projectId)
     {
-        return await _projectRepository.DeleteProjectAsync(projectId);
-    }
+        var project = await _projectRepository.GetProjectByIdAsync(projectId);
+        if(project == null)
+        {
+            Debug.WriteLine($"Project with ID {projectId} was not found");
+            return false;
+        }
 
-    private string GenerateProjectNumber(int id)
-    {
-        return $"P-{id}";
+        return await _projectRepository.DeleteProjectAsync(projectId);
     }
 }

@@ -1,0 +1,6 @@
+@Database_Course_Assignment.Api_HostAddress = http://localhost:5261
+
+GET {{Database_Course_Assignment.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

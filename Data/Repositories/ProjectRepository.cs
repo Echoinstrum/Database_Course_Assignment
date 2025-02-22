@@ -5,6 +5,9 @@ using System.Diagnostics;
 
 namespace Data.Repositories;
 
+
+//My ambition was to finnish up more than just the ProjectEntity and CustomerEntity. And actually use the Status, User and Product/Service entities and so on.
+//But i won't make it enough in time, that's why the Status, User and Product parts are commented out here and there.
 public class ProjectRepository(DataContext context)
 {
     private readonly DataContext _context = context;
@@ -13,13 +16,14 @@ public class ProjectRepository(DataContext context)
     {
         try
         {
-            // Got help from ChatGPT with the "throw new Exception part", i was gonna do a if-statement checking if each of them were null
-            // But i managed to get into some problems then, i believe since i was using FindAsync, and int(Id) never is null. 
-            // Also not sure about if it is actually correct to but the Customer, Status, User and Product entities as public in the ProjectEntity. But when i searched around for it, it seemed to be quite normal to do that. 
+            // Got help from ChatGPT with the "throw new Exception part" And what it does is 
+            // Get a customer from the database based on the CustomerId. And since Id is a primaryKey, it should never be null.
+            // But throwing an exception incanse a Customer couldn't be found. 
             projectEntity.Customer = await _context.Customers.FindAsync(projectEntity.CustomerId) ?? throw new Exception($"Customer with ID {projectEntity.CustomerId} were not found");
-            projectEntity.Status = await _context.StatusTypes.FindAsync(projectEntity.StatusTypeId) ?? throw new Exception($"Status with ID {projectEntity.StatusTypeId} were not found");
-            projectEntity.User = await _context.Users.FindAsync(projectEntity.UserId) ?? throw new Exception($"User with ID {projectEntity.UserId} were not found");
-            projectEntity.Product = await _context.Products.FindAsync(projectEntity.ProductId) ?? throw new Exception($"Product with ID {projectEntity.ProductId} were not found");
+
+            //projectEntity.Status = await _context.StatusTypes.FindAsync(projectEntity.StatusTypeId) ?? throw new Exception($"Status with ID {projectEntity.StatusTypeId} were not found");
+            //projectEntity.User = await _context.Users.FindAsync(projectEntity.UserId) ?? throw new Exception($"User with ID {projectEntity.UserId} were not found");
+            //projectEntity.Product = await _context.Products.FindAsync(projectEntity.ProductId) ?? throw new Exception($"Product with ID {projectEntity.ProductId} were not found");
 
             await _context.Projects.AddAsync(projectEntity);
             await _context.SaveChangesAsync();
@@ -32,38 +36,50 @@ public class ProjectRepository(DataContext context)
         }
     }
 
+    // Got some help from ChatGPT-4o on the .Include here. Eeven though Lazy loading isn't "active" as default. 
+    // Adding include here is to prevent Lazy Loading issues if it would get active.
     public async Task<IEnumerable<ProjectEntity>> GetAllProjectsAsync()
     {
         return await _context.Projects
-            .Include(p => p.Customer)
-            .Include(p => p.Status)
-            .Include(p => p.User)
-            .Include(p => p.Product)
+            .Include(p => p.Customer) // Preventing LazyLoading, ensuring the customer is loaded.
+            //.Include(p => p.Status)
+            //.Include(p => p.User)
+            //.Include(p => p.Product)
             .ToListAsync();
     } 
+
+
+    public async Task<ProjectEntity?> GetProjectByIdAsync(int projectId)
+    {
+        return await _context.Projects.FindAsync(projectId);
+    }
+
 
     public async Task<bool> UpdateProjectAsync(ProjectEntity updatedProjectEntity)
     {
         try
         {
-            var existingProjectEntity = await _context.Projects.FindAsync(updatedProjectEntity.Id);
+            var existingProjectEntity = await _context.Projects
+                //.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == updatedProjectEntity.Id);
+
             if (existingProjectEntity == null)
             {
+                Debug.WriteLine($"Project with ID {updatedProjectEntity.Id} was not found.");
                 return false;
             }
 
-            existingProjectEntity.Customer = await _context.Customers.FindAsync(updatedProjectEntity.CustomerId) ?? throw new Exception("Customer were not found");
-            existingProjectEntity.Status = await _context.StatusTypes.FindAsync(updatedProjectEntity.StatusTypeId) ?? throw new Exception("Status were not found");
-            existingProjectEntity.User = await _context.Users.FindAsync(updatedProjectEntity.UserId) ?? throw new Exception("User were not found");
-            existingProjectEntity.Product = await _context.Products.FindAsync(updatedProjectEntity.ProductId) ?? throw new Exception("Product were not found");
+            // Behåll det gamla CustomerId och ignorera det inkommande värdet
+            updatedProjectEntity.CustomerId = existingProjectEntity.CustomerId;
 
-            _context.Entry(existingProjectEntity).CurrentValues.SetValues(updatedProjectEntity);
+            // Uppdatera alla övriga fält
+            _context.Projects.Update(updatedProjectEntity);
             await _context.SaveChangesAsync();
             return true;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Errr in UpdateProjectAsync: {ex.Message}");
+            Debug.WriteLine($"Error in UpdateProjectAsync: {ex.Message}");
             return false;
         }
     }
@@ -78,7 +94,7 @@ public class ProjectRepository(DataContext context)
                 return false;
             }
 
-            _context.Projects.Remove(projectEntity)
+            _context.Projects.Remove(projectEntity);
             await _context.SaveChangesAsync();
             return true;
         }
@@ -87,5 +103,16 @@ public class ProjectRepository(DataContext context)
             Debug.WriteLine($"Error in DeleteProjectAsync: {ex.Message}");
             return false;
         }
+    }
+
+    // Got some help from ChatGPT-4o for this one. Helping me solve the issue i had of generating a ProjectNumber starting at "P-100"
+    // So, what this does is it counts all the Projects in the Db. Return the "P-StartingProjectNumber(which is set too 100) + projectCount" so if there are 2 projects, it return 102 and so on.
+    // This is then used in the ProjectSErvice
+
+    private const int StartingProjectNumber = 100;
+    public async Task<string> GetNextProjectNumberAsync()
+    {
+        int projectCount = await _context.Projects.CountAsync();
+        return $"P-{StartingProjectNumber + projectCount}";
     }
 }
