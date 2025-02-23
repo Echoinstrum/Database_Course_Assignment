@@ -4,7 +4,9 @@ using Data.Repositories;
 using System.Diagnostics;
 
 namespace Business.Services;
-
+//Got some help from ChatGPT-4o in this file. 
+//Where most of the help was about the "mapping" between ProjectRegistrationForm and ProjectEntity.
+// specifically ensuring that the data from the registration form is correctly sent into the entity model.
 public class ProjectService
 {
     private readonly ProjectRepository _projectRepository;
@@ -29,7 +31,7 @@ public class ProjectService
                 EndDate = projectRegistrationForm.EndDate,
                 ProjectManager = projectRegistrationForm.ProjectManager,
                 TotalPrice = projectRegistrationForm.TotalPrice,
-                Status = projectRegistrationForm.Status,
+                Status = projectRegistrationForm.Status ?? "Ej påbörjat",
                 Service = projectRegistrationForm.Service,
                 CustomerId = customerEntity.Id
             };
@@ -88,9 +90,11 @@ public class ProjectService
             StartDate = project.StartDate,
             EndDate = project.EndDate,
             ProjectManager = project.ProjectManager,
+            Service = project.Service,
+            Status = project.Status,
+            TotalPrice = project.TotalPrice,
             CustomerId = project.CustomerId,
-            CustomerName = project.Customer?.CustomerName?? "Okänd kund",
-            TotalPrice = project.TotalPrice
+            CustomerName = project.Customer?.CustomerName ?? "Okänd kund",
         });
     }
 

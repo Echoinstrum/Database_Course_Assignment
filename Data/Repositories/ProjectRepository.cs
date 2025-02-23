@@ -60,7 +60,6 @@ public class ProjectRepository(DataContext context)
         try
         {
             var existingProjectEntity = await _context.Projects
-                //.AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == updatedProjectEntity.Id);
 
             if (existingProjectEntity == null)
@@ -69,12 +68,13 @@ public class ProjectRepository(DataContext context)
                 return false;
             }
 
-            // Behåll det gamla CustomerId och ignorera det inkommande värdet
+            //Got a little help from ChatGPT-4o here. What it does is -
+            //Keeping the old customerId and forgets about the incomming value
             updatedProjectEntity.CustomerId = existingProjectEntity.CustomerId;
 
-            // Uppdatera alla övriga fält
             _context.Projects.Update(updatedProjectEntity);
             await _context.SaveChangesAsync();
+            Debug.WriteLine("Database updated successfully!");
             return true;
         }
         catch (Exception ex)
