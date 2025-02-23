@@ -82,7 +82,7 @@ namespace Database_Course_Assignment.Api.Controllers
                 return BadRequest("Project wasn't found");
             }
 
-            return NoContent();
+            return Ok(deletedProject);
         }
     }
 }
